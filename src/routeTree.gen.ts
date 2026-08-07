@@ -10,33 +10,113 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AskRouteImport } from './routes/ask'
+import { Route as LearnRouteImport } from './routes/learn'
+import { Route as LibraryRouteImport } from './routes/library'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as LearnSlugRouteImport } from './routes/learn.$slug'
+import { Route as LibraryIdRouteImport } from './routes/library.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AskRoute = AskRouteImport.update({
+  id: '/ask',
+  path: '/ask',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnRoute = LearnRouteImport.update({
+  id: '/learn',
+  path: '/learn',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnSlugRoute = LearnSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => LearnRoute,
+} as any)
+const LibraryIdRoute = LibraryIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => LibraryRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ask': typeof AskRoute
+  '/learn': typeof LearnRouteWithChildren
+  '/library': typeof LibraryRouteWithChildren
+  '/profile': typeof ProfileRoute
+  '/learn/$slug': typeof LearnSlugRoute
+  '/library/$id': typeof LibraryIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ask': typeof AskRoute
+  '/learn': typeof LearnRouteWithChildren
+  '/library': typeof LibraryRouteWithChildren
+  '/profile': typeof ProfileRoute
+  '/learn/$slug': typeof LearnSlugRoute
+  '/library/$id': typeof LibraryIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ask': typeof AskRoute
+  '/learn': typeof LearnRouteWithChildren
+  '/library': typeof LibraryRouteWithChildren
+  '/profile': typeof ProfileRoute
+  '/learn/$slug': typeof LearnSlugRoute
+  '/library/$id': typeof LibraryIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/ask'
+    | '/learn'
+    | '/library'
+    | '/profile'
+    | '/learn/$slug'
+    | '/library/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/ask'
+    | '/learn'
+    | '/library'
+    | '/profile'
+    | '/learn/$slug'
+    | '/library/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/ask'
+    | '/learn'
+    | '/library'
+    | '/profile'
+    | '/learn/$slug'
+    | '/library/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AskRoute: typeof AskRoute
+  LearnRoute: typeof LearnRouteWithChildren
+  LibraryRoute: typeof LibraryRouteWithChildren
+  ProfileRoute: typeof ProfileRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +128,79 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ask': {
+      id: '/ask'
+      path: '/ask'
+      fullPath: '/ask'
+      preLoaderRoute: typeof AskRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn': {
+      id: '/learn'
+      path: '/learn'
+      fullPath: '/learn'
+      preLoaderRoute: typeof LearnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn/$slug': {
+      id: '/learn/$slug'
+      path: '/$slug'
+      fullPath: '/learn/$slug'
+      preLoaderRoute: typeof LearnSlugRouteImport
+      parentRoute: typeof LearnRoute
+    }
+    '/library/$id': {
+      id: '/library/$id'
+      path: '/$id'
+      fullPath: '/library/$id'
+      preLoaderRoute: typeof LibraryIdRouteImport
+      parentRoute: typeof LibraryRoute
+    }
   }
 }
 
+interface LearnRouteChildren {
+  LearnSlugRoute: typeof LearnSlugRoute
+}
+
+const LearnRouteChildren: LearnRouteChildren = {
+  LearnSlugRoute: LearnSlugRoute,
+}
+
+const LearnRouteWithChildren = LearnRoute._addFileChildren(LearnRouteChildren)
+
+interface LibraryRouteChildren {
+  LibraryIdRoute: typeof LibraryIdRoute
+}
+
+const LibraryRouteChildren: LibraryRouteChildren = {
+  LibraryIdRoute: LibraryIdRoute,
+}
+
+const LibraryRouteWithChildren =
+  LibraryRoute._addFileChildren(LibraryRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AskRoute: AskRoute,
+  LearnRoute: LearnRouteWithChildren,
+  LibraryRoute: LibraryRouteWithChildren,
+  ProfileRoute: ProfileRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
