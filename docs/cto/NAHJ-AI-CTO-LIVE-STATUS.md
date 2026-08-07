@@ -9,7 +9,7 @@ Last updated: 2026-08-07
 - Development branch: `agent/integrity-hardening`
 - PR #1 — Integrity hardening
 - PR URL: https://github.com/alij3137214-sketch/faith-learner-hub/pull/1
-- PR is intentionally not merged until deployment verification is complete.
+- PR is intentionally not merged until application-level verification and deployment review are complete.
 
 ## Work completed on this branch
 
@@ -27,27 +27,28 @@ Last updated: 2026-08-07
 12. Added persistent CTO handoff documentation.
 13. Locked the learner-facing `bump_mission` RPC so authenticated learners cannot directly manufacture mission progress.
 14. Restored quiz publishing/admin management safely: only admins can read or mutate the source `quiz_questions` table; learners continue using `quiz_questions_public`.
+15. Applied Supabase security cleanup: removed the legacy public SELECT policy from `quiz_questions`, added a `quiz_attempts(quiz_id)` index, and optimized profile RLS auth checks.
+16. Synchronized that security cleanup as migration `20260807234000_nahj_ai_security_cleanup.sql` on the development branch.
 
 ## Verification status
 
-- GitHub writes are confirmed working through the connected GitHub tool; commits have been created on `agent/integrity-hardening`.
+- GitHub writes are confirmed working through the connected GitHub tool; commit `fc3c38d4926d89168b618cd42f6af6c4e9e946c1` created the latest migration on `agent/integrity-hardening`.
 - PR #1 exists and tracks the branch.
-- CI was corrected from stale npm-lock installation to the repository's synced Bun lockfile.
-- CI run #17 completed successfully: dependency installation, lint, and production build all passed.
-- A subsequent CI run is currently verifying the latest security migration.
-- Supabase migrations have been written but have NOT been applied to the live Supabase project from this tool. Do not claim production database hardening yet.
-- No production deployment has been claimed.
+- The latest confirmed CI run before the security-cleanup commit was successful: dependency installation, lint, and production build passed.
+- Supabase project `wkkxzswiomwsnqnkjpft` is ACTIVE_HEALTHY.
+- Supabase migration history contains the initial schema plus the integrity/security/quiz migrations, and the new security cleanup was successfully applied to the connected project.
+- Security advisor no longer reports the public quiz-question policy or the profile auth RLS init-plan findings. Remaining warnings concern SECURITY DEFINER RPC exposure that is intentional for authenticated domain actions and should be reviewed before production.
+- No production deployment or merge to `main` has been claimed.
 
 ## Next required work
 
-1. Confirm the latest CI run is green.
-2. Verify all migrations against the actual Supabase project/schema.
-3. Apply migrations through an authorized Supabase deployment path.
-4. Exercise auth, document completion, path completion, mission progression, quiz grading, duplicate submission, answer-key isolation, admin publishing, and unauthorized-write cases.
-5. Fix any failures.
-6. Re-review PR #1.
-7. Only then merge to `main` and deploy.
-8. Perform production smoke tests and record evidence.
+1. Push/verify CI for the latest security-cleanup commit.
+2. Exercise auth, document completion, path completion, mission progression, quiz grading, duplicate submission, answer-key isolation, admin publishing, and unauthorized-write cases.
+3. Review SECURITY DEFINER RPC exposure and ensure each callable function has a deliberate authenticated contract.
+4. Review RAG/source provenance and duel behavior.
+5. Re-review PR #1.
+6. Only then merge to `main` and deploy.
+7. Perform production smoke tests and record evidence.
 
 ## CTO rule
 
