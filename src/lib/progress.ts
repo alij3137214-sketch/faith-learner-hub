@@ -28,34 +28,30 @@ function toRewardResult(data: RpcReward | null): RewardResult | null {
 
 /**
  * Progression is database-authoritative. Arbitrary client-supplied XP is no
- * longer accepted; callers must use a domain action such as completeDocument,
- * completePathItem, or submitQuiz so the database chooses the reward.
+ * longer accepted; callers must use a domain action so the database chooses
+ * the reward.
  */
 export async function awardXp(_userId: string, _xp: number, _coins = 0): Promise<RewardResult | null> {
   throw new Error("Direct XP awards are disabled; use a server-authoritative progression action.");
 }
 
 /** Server-authoritative document completion and reward. */
-export async function completeDocument(userId: string, documentId: string, _xpReward?: number) {
+export async function completeDocument(_userId: string, documentId: string, _xpReward?: number) {
   const { data, error } = await supabase.rpc("complete_document", { p_document_id: documentId });
   if (error) throw error;
-  if (userId !== (await supabase.auth.getUser()).data.user?.id) return null;
   return toRewardResult(data as RpcReward | null);
 }
 
 /** Server-authoritative learning-path item completion and reward. */
-export async function completePathItem(userId: string, pathItemId: string, _xpReward?: number) {
+export async function completePathItem(_userId: string, pathItemId: string, _xpReward?: number) {
   const { data, error } = await supabase.rpc("complete_path_item", { p_path_item_id: pathItemId });
   if (error) throw error;
-  if (userId !== (await supabase.auth.getUser()).data.user?.id) return null;
   return toRewardResult(data as RpcReward | null);
 }
 
 /** Server-authoritative mission progress. Reward values never come from the browser. */
-export async function bumpMission(userId: string, code: string, amount = 1) {
-  if (userId !== (await supabase.auth.getUser()).data.user?.id) return null;
-  const { data, error } = await supabase.rpc("bump_mission_internal", {
-    p_user_id: userId,
+export async function bumpMission(_userId: string, code: string, amount = 1) {
+  const { data, error } = await supabase.rpc("bump_mission", {
     p_code: code,
     p_amount: amount,
   });
