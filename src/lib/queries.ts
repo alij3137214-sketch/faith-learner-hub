@@ -87,11 +87,9 @@ export function useQuiz(id: string | null) {
       if (error) throw error;
       if (!quiz) return null;
 
-      const { data: questions, error: questionError } = await supabase
-        .from("quiz_questions_public")
-        .select("id, quiz_id, kind, prompt, options, position")
-        .eq("quiz_id", id!)
-        .order("position");
+      const { data: questions, error: questionError } = await supabase.rpc("get_quiz_questions_public", {
+        p_quiz_id: id!,
+      });
       if (questionError) throw questionError;
 
       return { ...quiz, quiz_questions: questions ?? [] };
