@@ -22,22 +22,23 @@ Last updated: 2026-08-07
 7. Added authenticated RPCs for document completion, path-item completion, quiz submission, profile preferences, and mission progress.
 8. Updated `src/lib/progress.ts` to use trusted RPCs rather than client-side reward calculations.
 9. Updated `src/lib/queries.ts` to read quiz questions through the safe projection and to scope missions to the current period.
-10. Added GitHub Actions CI for `npm ci`, `npm run lint`, and `npm run build`.
+10. Added GitHub Actions CI using the repository's synced Bun lockfile (`bun install --frozen-lockfile`, lint, build).
 11. Removed the tracked `.env` file from this development branch and added `.env`/`.env.*` to `.gitignore`.
+12. Added this live CTO handoff file so future chats can resume without reconstructing project state.
 
-## Important verification status
+## Verification status
 
 - GitHub writes are working through the connected GitHub tool: commits were created on `agent/integrity-hardening`.
 - Draft PR #1 exists and tracks the branch.
-- GitHub Actions currently has no visible workflow run from the connector; repository Actions permissions could not be inspected because the integration returned HTTP 403. Do not claim CI passed.
-- The Supabase migration has been written but has NOT been applied to the live Supabase project from this tool. Do not claim the production database is hardened yet.
+- First CI run started successfully but failed at `npm ci` because the repository's npm lockfile is stale relative to `package.json`. The repository's Bun lockfile is synced with the current dependency set, so CI was corrected to use Bun. A new CI run must still complete before claiming the build is green.
+- The Supabase migrations have been written but have NOT been applied to the live Supabase project from this tool. Do not claim the production database is hardened yet.
 - No production deployment has been claimed.
 
 ## Next required work
 
-1. Verify the SQL migration against the actual Supabase project/schema.
-2. Apply migrations to the Supabase project through an authorized deployment path.
-3. Run lint/build/tests in CI or another executable environment.
+1. Get a green CI run using the Bun lockfile.
+2. Verify the SQL migration against the actual Supabase project/schema.
+3. Apply migrations to the Supabase project through an authorized deployment path.
 4. Exercise auth, document completion, path completion, mission progression, quiz grading, duplicate submission, and unauthorized-write cases.
 5. Fix any failures.
 6. Re-review the PR.
