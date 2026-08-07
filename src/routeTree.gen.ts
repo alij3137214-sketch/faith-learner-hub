@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AskRouteImport } from './routes/ask'
 import { Route as LearnRouteImport } from './routes/learn'
 import { Route as LibraryRouteImport } from './routes/library'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LearnSlugRouteImport } from './routes/learn.$slug'
 import { Route as LibraryIdRouteImport } from './routes/library.$id'
 
@@ -36,6 +37,11 @@ const LibraryRoute = LibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LearnSlugRoute = LearnSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/ask': typeof AskRoute
   '/learn': typeof LearnRouteWithChildren
   '/library': typeof LibraryRouteWithChildren
+  '/profile': typeof ProfileRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/library/$id': typeof LibraryIdRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/ask': typeof AskRoute
   '/learn': typeof LearnRouteWithChildren
   '/library': typeof LibraryRouteWithChildren
+  '/profile': typeof ProfileRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/library/$id': typeof LibraryIdRoute
 }
@@ -69,21 +77,36 @@ export interface FileRoutesById {
   '/ask': typeof AskRoute
   '/learn': typeof LearnRouteWithChildren
   '/library': typeof LibraryRouteWithChildren
+  '/profile': typeof ProfileRoute
   '/learn/$slug': typeof LearnSlugRoute
   '/library/$id': typeof LibraryIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/ask' | '/learn' | '/library' | '/learn/$slug' | '/library/$id'
+    | '/'
+    | '/ask'
+    | '/learn'
+    | '/library'
+    | '/profile'
+    | '/learn/$slug'
+    | '/library/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ask' | '/learn' | '/library' | '/learn/$slug' | '/library/$id'
+  to:
+    | '/'
+    | '/ask'
+    | '/learn'
+    | '/library'
+    | '/profile'
+    | '/learn/$slug'
+    | '/library/$id'
   id:
     | '__root__'
     | '/'
     | '/ask'
     | '/learn'
     | '/library'
+    | '/profile'
     | '/learn/$slug'
     | '/library/$id'
   fileRoutesById: FileRoutesById
@@ -93,6 +116,7 @@ export interface RootRouteChildren {
   AskRoute: typeof AskRoute
   LearnRoute: typeof LearnRouteWithChildren
   LibraryRoute: typeof LibraryRouteWithChildren
+  ProfileRoute: typeof ProfileRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -123,6 +147,13 @@ declare module '@tanstack/react-router' {
       path: '/library'
       fullPath: '/library'
       preLoaderRoute: typeof LibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/learn/$slug': {
@@ -168,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   AskRoute: AskRoute,
   LearnRoute: LearnRouteWithChildren,
   LibraryRoute: LibraryRouteWithChildren,
+  ProfileRoute: ProfileRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
