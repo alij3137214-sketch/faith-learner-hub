@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LearnRouteImport } from './routes/learn'
 import { Route as LibraryRouteImport } from './routes/library'
+import { Route as LearnSlugRouteImport } from './routes/learn.$slug'
 import { Route as LibraryIdRouteImport } from './routes/library.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const LibraryRoute = LibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LearnSlugRoute = LearnSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => LearnRoute,
+} as any)
 const LibraryIdRoute = LibraryIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -37,34 +43,37 @@ const LibraryIdRoute = LibraryIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/learn': typeof LearnRoute
+  '/learn': typeof LearnRouteWithChildren
   '/library': typeof LibraryRouteWithChildren
+  '/learn/$slug': typeof LearnSlugRoute
   '/library/$id': typeof LibraryIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/learn': typeof LearnRoute
+  '/learn': typeof LearnRouteWithChildren
   '/library': typeof LibraryRouteWithChildren
+  '/learn/$slug': typeof LearnSlugRoute
   '/library/$id': typeof LibraryIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/learn': typeof LearnRoute
+  '/learn': typeof LearnRouteWithChildren
   '/library': typeof LibraryRouteWithChildren
+  '/learn/$slug': typeof LearnSlugRoute
   '/library/$id': typeof LibraryIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/learn' | '/library' | '/library/$id'
+  fullPaths: '/' | '/learn' | '/library' | '/learn/$slug' | '/library/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/learn' | '/library' | '/library/$id'
-  id: '__root__' | '/' | '/learn' | '/library' | '/library/$id'
+  to: '/' | '/learn' | '/library' | '/learn/$slug' | '/library/$id'
+  id: '__root__' | '/' | '/learn' | '/library' | '/learn/$slug' | '/library/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  LearnRoute: typeof LearnRoute
+  LearnRoute: typeof LearnRouteWithChildren
   LibraryRoute: typeof LibraryRouteWithChildren
 }
 
@@ -91,6 +100,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/learn/$slug': {
+      id: '/learn/$slug'
+      path: '/$slug'
+      fullPath: '/learn/$slug'
+      preLoaderRoute: typeof LearnSlugRouteImport
+      parentRoute: typeof LearnRoute
+    }
     '/library/$id': {
       id: '/library/$id'
       path: '/$id'
@@ -100,6 +116,16 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface LearnRouteChildren {
+  LearnSlugRoute: typeof LearnSlugRoute
+}
+
+const LearnRouteChildren: LearnRouteChildren = {
+  LearnSlugRoute: LearnSlugRoute,
+}
+
+const LearnRouteWithChildren = LearnRoute._addFileChildren(LearnRouteChildren)
 
 interface LibraryRouteChildren {
   LibraryIdRoute: typeof LibraryIdRoute
@@ -114,7 +140,7 @@ const LibraryRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  LearnRoute: LearnRoute,
+  LearnRoute: LearnRouteWithChildren,
   LibraryRoute: LibraryRouteWithChildren,
 }
 export const routeTree = rootRouteImport
