@@ -27,6 +27,8 @@ type AuthValue = {
   continueAsGuest: () => void;
   exitGuest: () => void;
   refreshProfile: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, displayName: string) => Promise<{ error: Error | null; needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
 };
 
@@ -77,6 +79,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session?.user) await load(session.user.id);
   }, [session, load]);
 
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    return { error: error ? new Error(error.message) : null };
+  }, []);
+
+  const signUp = useCallback(async (email: string, password: string, displayName: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: { display_name: displayName.trim() || "Seeker of knowledge" },
+        emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/` : undefined,
+      },
+    });
+    return { error: error ? new Error(error.message) : null, needsConfirmation: !data.session };
+  }, []);
+
   const value = useMemo<AuthValue>(
     () => ({
       loading,
@@ -94,6 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsGuest(false);
       },
       refreshProfile,
+      signIn,
+      signUp,
       signOut: async () => {
         await supabase.auth.signOut();
         localStorage.removeItem(GUEST_KEY);
@@ -102,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsAdmin(false);
       },
     }),
-    [loading, session, profile, isAdmin, isGuest, refreshProfile],
+    [loading, session, profile, isAdmin, isGuest, refreshProfile, signIn, signUp],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
