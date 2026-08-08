@@ -1,4 +1,5 @@
 name: Playwright production smoke
+
 on:
   workflow_dispatch:
   push:
@@ -9,19 +10,30 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: playwright-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+
       - name: Validate browser test secrets
         shell: bash
         env:
@@ -33,11 +45,14 @@ jobs:
           missing=0
           for name in TEST_EMAIL_1 TEST_PASSWORD_1 TEST_EMAIL_2 TEST_PASSWORD_2; do
             if [ -z "${!name}" ]; then
-              echo "::error::GitHub Actions secret $name is missing or empty. Add it under Settings > Secrets and variables > Actions."
+              echo "::error::GitHub Actions secret $name is missing or empty."
               missing=1
+            else
+              echo "$name is configured"
             fi
           done
           if [ "$missing" -ne 0 ]; then exit 1; fi
+
       - name: Run production smoke tests
         run: npm run test:e2e
         env:
@@ -46,8 +61,11 @@ jobs:
           TEST_PASSWORD_1: ${{ secrets.TEST_PASSWORD_1 }}
           TEST_EMAIL_2: ${{ secrets.TEST_EMAIL_2 }}
           TEST_PASSWORD_2: ${{ secrets.TEST_PASSWORD_2 }}
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload Playwright report
         if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
+          if-no-files-found: ignore
