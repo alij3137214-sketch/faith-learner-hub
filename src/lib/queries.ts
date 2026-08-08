@@ -48,12 +48,23 @@ export function usePaths() {
   return useQuery({
     queryKey: ["paths"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: paths, error: pathError } = await supabase
         .from("learning_paths")
-        .select("*, path_items(id)")
+        .select("*")
         .order("sort_order");
-      if (error) throw error;
-      return data;
+      if (pathError) throw pathError;
+      if (!paths?.length) return [];
+
+      const { data: items, error: itemError } = await supabase
+        .from("path_items")
+        .select("id, path_id")
+        .in("path_id", paths.map((p) => p.id));
+      if (itemError) throw itemError;
+
+      return paths.map((p) => ({
+        ...p,
+        path_items: (items ?? []).filter((item) => item.path_id === p.id),
+      }));
     },
   });
 }
@@ -62,14 +73,22 @@ export function usePath(slug: string) {
   return useQuery({
     queryKey: ["path", slug],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: path, error: pathError } = await supabase
         .from("learning_paths")
-        .select("*, path_items(*)")
+        .select("*")
         .eq("slug", slug)
         .maybeSingle();
-      if (error) throw error;
-      if (data?.path_items) data.path_items.sort((a, b) => a.position - b.position);
-      return data;
+      if (pathError) throw pathError;
+      if (!path) return null;
+
+      const { data: items, error: itemError } = await supabase
+        .from("path_items")
+        .select("*")
+        .eq("path_id", path.id)
+        .order("position");
+      if (itemError) throw itemError;
+
+      return { ...path, path_items: items ?? [] };
     },
   });
 }
