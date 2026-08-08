@@ -19,6 +19,10 @@ jobs:
       - run: npm run test:e2e
         env:
           BASE_URL: https://faith-learner-hub.vercel.app
+          TEST_EMAIL_1: ${{ secrets.TEST_EMAIL_1 }}
+          TEST_PASSWORD_1: ${{ secrets.TEST_PASSWORD_1 }}
+          TEST_EMAIL_2: ${{ secrets.TEST_EMAIL_2 }}
+          TEST_PASSWORD_2: ${{ secrets.TEST_PASSWORD_2 }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
