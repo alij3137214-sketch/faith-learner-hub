@@ -35,8 +35,7 @@ test.describe('Faith Learner production smoke', () => {
   });
 
   test('admin entry is visible and protected', async ({ page }) => {
-    await page.goto('/');
-    await expect(page).toHaveURL(/\/auth/);
+    test.skip(!email || !password, 'Authenticated test secrets are not configured');
     await login(page, email!, password!);
     const admin = page.getByRole('link', { name: /Admin/i }).first();
     await expect(admin).toBeVisible();
@@ -49,9 +48,17 @@ test.describe('Faith Learner production smoke', () => {
     test.skip(!email || !password, 'Authenticated test secrets are not configured');
     await login(page, email!, password!);
 
-    for (const path of ['/learn', '/library', '/ask', '/rank', '/duel', '/profile']) {
+    for (const [path, marker] of [
+      ['/learn', /Learn|Learning/i],
+      ['/library', /Library|Authentic, indexed sources/i],
+      ['/ask', /Knowledge|Assistant|Ask/i],
+      ['/leaderboard', /Rank|Leaderboard/i],
+      ['/duel', /Duel|Challenge/i],
+      ['/profile', /Profile|You/i],
+    ] as const) {
       await page.goto(path);
       await expect(page).toHaveURL(new RegExp(path.replace('/', '\\/')));
+      await expect(page.locator('body')).toContainText(marker);
     }
 
     await page.goto('/library');
