@@ -4,9 +4,15 @@ const email = process.env.TEST_EMAIL_1;
 const password = process.env.TEST_PASSWORD_1;
 
 test.describe('Faith Learner production smoke', () => {
-  test('home exposes core navigation', async ({ page }) => {
+  test('home exposes auth-first entry and core navigation after login', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('body')).toContainText(/Home|Library|Learn/i);
+    await expect(page).toHaveURL(/\/auth/);
+    await expect(page.getByLabel('Email')).toBeVisible();
+    await expect(page.getByLabel('Password')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+
+    test.skip(!email || !password, 'Authenticated test secrets are not configured');
+    await login(page, email!, password!);
     await expect(page.getByRole('link', { name: /Library/i }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: /Learn/i }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: /Admin/i }).first()).toBeVisible();
@@ -30,11 +36,13 @@ test.describe('Faith Learner production smoke', () => {
 
   test('admin entry is visible and protected', async ({ page }) => {
     await page.goto('/');
+    await expect(page).toHaveURL(/\/auth/);
+    await login(page, email!, password!);
     const admin = page.getByRole('link', { name: /Admin/i }).first();
     await expect(admin).toBeVisible();
-    await admin.click({ force: true });
-    await expect(page.locator('body')).toContainText(/admin|access|sign in|authorized/i);
-    await expect(page.getByLabel('Email')).toBeVisible();
+    await admin.click();
+    await expect(page).toHaveURL(/\/admin/);
+    await expect(page.locator('body')).toContainText(/admin|access|authorized/i);
   });
 
   test('authenticated learner can reach learning, library, AI, rank and duel', async ({ page }) => {
@@ -50,6 +58,7 @@ test.describe('Faith Learner production smoke', () => {
     const first = page.locator('a[href^="/library/"]').first();
     await expect(first).toBeVisible();
     await first.click();
+    await expect(page).toHaveURL(/\/library\/[0-9a-f-]+/);
     await expect(page.locator('article')).toBeVisible();
     await expect(page.getByRole('button', { name: /AI Summary/i })).toBeVisible();
 
@@ -71,10 +80,8 @@ test.describe('Faith Learner production smoke', () => {
 
 async function expectAuthGate(page: Page, path: string) {
   await page.goto(path);
-  const authForm = page.getByLabel('Email');
-  if (await authForm.isVisible().catch(() => false)) return;
   await expect(page).toHaveURL(/\/auth/);
-  await expect(authForm).toBeVisible();
+  await expect(page.getByLabel('Email')).toBeVisible();
 }
 
 async function login(page: Page, userEmail: string, userPassword: string) {
