@@ -1,0 +1,10 @@
+name: Vercel deploy request
+on:
+  push:
+    branches: [main]
+jobs:
+  deployment-trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm Vercel deployment trigger
+        run: echo "GitHub push to main completed; Vercel Git integration should deploy this commit automatically."
