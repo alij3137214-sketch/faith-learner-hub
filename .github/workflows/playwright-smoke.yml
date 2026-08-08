@@ -22,6 +22,22 @@ jobs:
         run: bun install
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
+      - name: Validate browser test secrets
+        shell: bash
+        env:
+          TEST_EMAIL_1: ${{ secrets.TEST_EMAIL_1 }}
+          TEST_PASSWORD_1: ${{ secrets.TEST_PASSWORD_1 }}
+          TEST_EMAIL_2: ${{ secrets.TEST_EMAIL_2 }}
+          TEST_PASSWORD_2: ${{ secrets.TEST_PASSWORD_2 }}
+        run: |
+          missing=0
+          for name in TEST_EMAIL_1 TEST_PASSWORD_1 TEST_EMAIL_2 TEST_PASSWORD_2; do
+            if [ -z "${!name}" ]; then
+              echo "::error::GitHub Actions secret $name is missing or empty. Add it under Settings > Secrets and variables > Actions."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
       - name: Run production smoke tests
         run: bun run test:e2e
         env:
