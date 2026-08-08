@@ -4,10 +4,12 @@ const email = process.env.TEST_EMAIL_1;
 const password = process.env.TEST_PASSWORD_1;
 
 test.describe('Faith Learner production smoke', () => {
-  test('public navigation exposes core features', async ({ page }) => {
+  test('home exposes core navigation', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('body')).toContainText(/Home|Library|Learn/i);
-    await expect(page.locator('a[href="/library"], a[href="/learn"], a[href="/admin"]')).toHaveCount(3);
+    await expect(page.getByRole('link', { name: /Library/i }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /Learn/i }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /Admin/i }).first()).toBeVisible();
   });
 
   test('authentication form is available', async ({ page }) => {
@@ -18,26 +20,21 @@ test.describe('Faith Learner production smoke', () => {
     await expect(page.getByRole('button', { name: /Resend confirmation/i })).toBeVisible();
   });
 
-  test('library cards open reading material', async ({ page }) => {
-    await page.goto('/library');
-    const first = page.locator('a[href^="/library/"]').first();
-    await expect(first).toBeVisible();
-    await first.click();
-    await expect(page).toHaveURL(/\/library\//);
-    await expect(page.locator('article')).toBeVisible();
+  test('library is auth-gated before login', async ({ page }) => {
+    await expectAuthGate(page, '/library');
   });
 
-  test('AI assistant is reachable', async ({ page }) => {
-    await page.goto('/ask');
-    await expect(page.locator('input')).toBeVisible();
-    await expect(page.getByRole('button')).toBeVisible();
+  test('AI assistant is auth-gated before login', async ({ page }) => {
+    await expectAuthGate(page, '/ask');
   });
 
-  test('admin entry is visible but protected', async ({ page }) => {
+  test('admin entry is visible and protected', async ({ page }) => {
     await page.goto('/');
-    await page.locator('a[href="/admin"]').click();
-    await expect(page).toHaveURL(/\/admin/);
+    const admin = page.getByRole('link', { name: /Admin/i }).first();
+    await expect(admin).toBeVisible();
+    await admin.click({ force: true });
     await expect(page.locator('body')).toContainText(/admin|access|sign in|authorized/i);
+    await expect(page.getByLabel('Email')).toBeVisible();
   });
 
   test('authenticated learner can reach learning, library, AI, rank and duel', async ({ page }) => {
@@ -58,8 +55,11 @@ test.describe('Faith Learner production smoke', () => {
 
     await page.goto('/ask');
     const input = page.locator('input').first();
+    await expect(input).toBeVisible();
     await input.fill('What does the library say about moral courage?');
-    await page.getByRole('button').last().click();
+    const submit = page.getByRole('button', { name: /Ask|Send|Submit/i }).last();
+    await expect(submit).toBeVisible();
+    await submit.click();
     await expect(page.locator('body')).toContainText(/Searching|AI request failed|No relevant information|citation|moral courage/i, { timeout: 30_000 });
 
     await page.goto('/profile');
@@ -68,6 +68,14 @@ test.describe('Faith Learner production smoke', () => {
     await page.waitForURL(/\/auth/);
   });
 });
+
+async function expectAuthGate(page: Page, path: string) {
+  await page.goto(path);
+  const authForm = page.getByLabel('Email');
+  if (await authForm.isVisible().catch(() => false)) return;
+  await expect(page).toHaveURL(/\/auth/);
+  await expect(authForm).toBeVisible();
+}
 
 async function login(page: Page, userEmail: string, userPassword: string) {
   await page.goto('/auth');
