@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { periodKey } from "./gamification";
 
 export function useScholars() {
   return useQuery({
@@ -78,14 +79,20 @@ export function useQuiz(id: string | null) {
     enabled: Boolean(id),
     queryKey: ["quiz", id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: quiz, error } = await supabase
         .from("quizzes")
-        .select("*, quiz_questions(*)")
+        .select("*")
         .eq("id", id!)
         .maybeSingle();
       if (error) throw error;
-      if (data?.quiz_questions) data.quiz_questions.sort((a, b) => a.position - b.position);
-      return data;
+      if (!quiz) return null;
+
+      const { data: questions, error: questionError } = await supabase.rpc("get_quiz_questions_public", {
+        p_quiz_id: id!,
+      });
+      if (questionError) throw questionError;
+
+      return { ...quiz, quiz_questions: questions ?? [] };
     },
   });
 }
@@ -109,9 +116,16 @@ export function useMissions(userId?: string) {
       const { data: missions, error } = await supabase.from("missions").select("*").eq("active", true);
       if (error) throw error;
       if (!userId) return missions.map((m) => ({ ...m, progress: 0, completed: false }));
-      const { data: mine } = await supabase.from("user_missions").select("*").eq("user_id", userId);
+
+      const currentPeriods = new Map(missions.map((m) => [m.id, periodKey(m.cadence)]));
+      const { data: mine, error: mineError } = await supabase
+        .from("user_missions")
+        .select("*")
+        .eq("user_id", userId);
+      if (mineError) throw mineError;
+
       return missions.map((m) => {
-        const row = mine?.find((x) => x.mission_id === m.id);
+        const row = mine?.find((x) => x.mission_id === m.id && x.period_key === currentPeriods.get(m.id));
         return { ...m, progress: row?.progress ?? 0, completed: row?.completed ?? false };
       });
     },
@@ -125,7 +139,11 @@ export function useAchievements(userId?: string) {
       const { data: all, error } = await supabase.from("achievements").select("*").order("xp_reward");
       if (error) throw error;
       if (!userId) return all.map((a) => ({ ...a, earned: false }));
-      const { data: mine } = await supabase.from("user_achievements").select("achievement_id").eq("user_id", userId);
+      const { data: mine, error: mineError } = await supabase
+        .from("user_achievements")
+        .select("achievement_id")
+        .eq("user_id", userId);
+      if (mineError) throw mineError;
       return all.map((a) => ({ ...a, earned: Boolean(mine?.some((m) => m.achievement_id === a.id)) }));
     },
   });

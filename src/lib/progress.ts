@@ -1,137 +1,93 @@
 import { supabase } from "@/integrations/supabase/client";
-import { levelFromXp, periodKey } from "./gamification";
 
-export type RewardResult = { xp: number; coins: number; levelUp: boolean; newLevel: number };
+export type RewardResult = {
+  xp: number;
+  coins: number;
+  levelUp: boolean;
+  newLevel: number;
+};
 
-/** Award XP + coins to the current user, recompute level, and keep the streak alive. */
-export async function awardXp(userId: string, xp: number, coins = 0): Promise<RewardResult | null> {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("xp, coins, level, streak, last_active_date")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (!profile) return null;
+type RpcReward = {
+  rewarded?: boolean;
+  xp?: number;
+  coins?: number;
+  level?: number;
+  levelUp?: boolean;
+  streak?: number;
+};
 
-  const newXp = profile.xp + xp;
-  const newLevel = levelFromXp(newXp);
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-
-  let streak = profile.streak;
-  if (profile.last_active_date !== today) {
-    streak = profile.last_active_date === yesterday ? profile.streak + 1 : 1;
-  }
-
-  await supabase
-    .from("profiles")
-    .update({ xp: newXp, coins: profile.coins + coins, level: newLevel, streak, last_active_date: today })
-    .eq("user_id", userId);
-
-  return { xp, coins, levelUp: newLevel > profile.level, newLevel };
+function toRewardResult(data: RpcReward | null): RewardResult | null {
+  if (!data || data.rewarded === false) return null;
+  return {
+    xp: data.xp ?? 0,
+    coins: data.coins ?? 0,
+    levelUp: Boolean(data.levelUp),
+    newLevel: data.level ?? 1,
+  };
 }
 
-/** Idempotently grant an achievement by code. Returns true when newly earned. */
-export async function grantAchievement(userId: string, code: string) {
-  const { data: ach } = await supabase
-    .from("achievements")
-    .select("id, xp_reward, coin_reward")
-    .eq("code", code)
-    .maybeSingle();
-  if (!ach) return false;
-
-  const { data: existing } = await supabase
-    .from("user_achievements")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("achievement_id", ach.id)
-    .maybeSingle();
-  if (existing) return false;
-
-  await supabase.from("user_achievements").insert({ user_id: userId, achievement_id: ach.id });
-  await awardXp(userId, ach.xp_reward, ach.coin_reward);
-  return true;
+/**
+ * Progression is database-authoritative. Arbitrary client-supplied XP is no
+ * longer accepted; callers must use a domain action so the database chooses
+ * the reward.
+ */
+export async function awardXp(_userId: string, _xp: number, _coins = 0): Promise<RewardResult | null> {
+  throw new Error("Direct XP awards are disabled; use a server-authoritative progression action.");
 }
 
-/** Increment progress on a mission for the current period. */
-export async function bumpMission(userId: string, code: string, amount = 1) {
-  const { data: mission } = await supabase
-    .from("missions")
-    .select("id, target, cadence, xp_reward, coin_reward")
-    .eq("code", code)
-    .maybeSingle();
-  if (!mission) return;
-
-  const key = periodKey(mission.cadence);
-  const { data: row } = await supabase
-    .from("user_missions")
-    .select("id, progress, completed")
-    .eq("user_id", userId)
-    .eq("mission_id", mission.id)
-    .eq("period_key", key)
-    .maybeSingle();
-
-  const progress = Math.min(mission.target, (row?.progress ?? 0) + amount);
-  const completed = progress >= mission.target;
-
-  if (row) {
-    if (row.completed) return;
-    await supabase.from("user_missions").update({ progress, completed }).eq("id", row.id);
-  } else {
-    await supabase
-      .from("user_missions")
-      .insert({ user_id: userId, mission_id: mission.id, progress, completed, period_key: key });
-  }
-
-  if (completed && !row?.completed) await awardXp(userId, mission.xp_reward, mission.coin_reward);
+/** Server-authoritative document completion and reward. */
+export async function completeDocument(_userId: string, documentId: string, _xpReward?: number) {
+  const { data, error } = await supabase.rpc("complete_document", { p_document_id: documentId });
+  if (error) throw error;
+  return toRewardResult(data as RpcReward | null);
 }
 
-/** Mark a document as read, award its XP once, and progress the reading mission. */
-export async function completeDocument(userId: string, documentId: string, xpReward: number) {
-  const { data: existing } = await supabase
-    .from("user_progress")
-    .select("id, completed")
-    .eq("user_id", userId)
-    .eq("document_id", documentId)
-    .maybeSingle();
-
-  if (existing?.completed) return null;
-
-  if (existing) {
-    await supabase.from("user_progress").update({ completed: true, percent: 100, last_read_at: new Date().toISOString() }).eq("id", existing.id);
-  } else {
-    await supabase.from("user_progress").insert({ user_id: userId, document_id: documentId, completed: true, percent: 100 });
-  }
-
-  const reward = await awardXp(userId, xpReward, Math.round(xpReward / 4));
-  await bumpMission(userId, "daily_read");
-  await grantAchievement(userId, "first_read");
-
-  const { count } = await supabase
-    .from("user_progress")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("completed", true);
-  if ((count ?? 0) >= 5) await grantAchievement(userId, "five_reads");
-
-  return reward;
+/** Server-authoritative learning-path item completion and reward. */
+export async function completePathItem(_userId: string, pathItemId: string, _xpReward?: number) {
+  const { data, error } = await supabase.rpc("complete_path_item", { p_path_item_id: pathItemId });
+  if (error) throw error;
+  return toRewardResult(data as RpcReward | null);
 }
 
-export async function completePathItem(userId: string, pathItemId: string, xpReward: number) {
-  const { data: existing } = await supabase
-    .from("user_progress")
-    .select("id, completed")
-    .eq("user_id", userId)
-    .eq("path_item_id", pathItemId)
-    .maybeSingle();
-  if (existing?.completed) return null;
+/** Server-authoritative mission progress. Reward values never come from the browser. */
+export async function bumpMission(_userId: string, code: string, amount = 1) {
+  const { data, error } = await supabase.rpc("bump_mission", {
+    p_code: code,
+    p_amount: amount,
+  });
+  if (error) throw error;
+  return data;
+}
 
-  if (existing) {
-    await supabase.from("user_progress").update({ completed: true, percent: 100 }).eq("id", existing.id);
-  } else {
-    await supabase.from("user_progress").insert({ user_id: userId, path_item_id: pathItemId, completed: true, percent: 100 });
-  }
+/**
+ * Achievement grants are intentionally no longer directly callable from the
+ * learner client. The database grants them as a consequence of trusted actions.
+ */
+export async function grantAchievement(_userId: string, _code: string) {
+  throw new Error("Direct achievement grants are disabled; achievements are server-managed.");
+}
 
-  const reward = await awardXp(userId, xpReward, Math.round(xpReward / 4));
-  await bumpMission(userId, "daily_lesson");
-  return reward;
+export type QuizSubmission = {
+  question_id: string;
+  answer: string;
+};
+
+export type QuizResult = {
+  alreadyPassed: boolean;
+  correct: number;
+  total: number;
+  scorePercent: number;
+  passed: boolean;
+  xp: number;
+  coins: number;
+};
+
+/** Grade a quiz inside Postgres; the answer key never reaches the browser. */
+export async function submitQuiz(quizId: string, answers: QuizSubmission[]): Promise<QuizResult> {
+  const { data, error } = await supabase.rpc("submit_quiz", {
+    p_quiz_id: quizId,
+    p_answers: answers,
+  });
+  if (error) throw error;
+  return data as QuizResult;
 }
