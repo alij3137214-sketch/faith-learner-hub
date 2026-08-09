@@ -28,6 +28,7 @@ function DocumentPage() {
 
   const persistedDone = Boolean(progress?.some((p) => p.document_id === id && p.completed));
   const done = persistedDone || localDone;
+  const scholar = Array.isArray(doc.scholars) ? doc.scholars[0] : doc.scholars;
 
   const markComplete = async () => {
     if (!user || done) return;
@@ -53,6 +54,14 @@ function DocumentPage() {
   };
 
   return <AppShell title={doc.title} subtitle={doc.summary ?? ""}>
+    <section aria-label="Attribution" className="mb-5 rounded-3xl border border-border bg-card/60 p-4 text-xs text-muted-foreground">
+      <p className="font-semibold text-foreground">Attribution</p>
+      <p className="mt-1">Type: {doc.type}</p>
+      {scholar?.name && <p>Associated scholar: {scholar.name}{scholar.title ? ` · ${scholar.title}` : ""}</p>}
+      <p>Source: {doc.source ?? "Source not specified"}</p>
+      {doc.published_at && <p>Published: {doc.published_at}</p>}
+      <p className="mt-2">This material is an educational synthesis unless a primary source is explicitly identified.</p>
+    </section>
     <div className="mb-4 flex gap-2"><Button variant="outline" onClick={() => void makeSummary()} disabled={busy} className="rounded-2xl"><Sparkles className="mr-2 h-4 w-4" />AI Summary</Button></div>
     {summary && <section className="surface-glass mb-5 rounded-3xl p-5"><h2 className="font-display font-semibold">AI Summary</h2><p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{summary}</p></section>}
     <article className="surface-glass rounded-3xl p-5"><span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">{doc.type}</span><div className="mt-4 space-y-4 text-sm leading-relaxed text-foreground/90">{String(doc.body ?? "").split(/\n{2,}/).filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}</div></article>
