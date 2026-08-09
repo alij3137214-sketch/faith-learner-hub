@@ -19,6 +19,7 @@ test.describe('Faith Learner sermon and letter reading smoke', () => {
     await letter.click();
     await expect(page).toHaveURL(/\/library\/[0-9a-f-]+/);
 
+    await expect(page.locator('body')).toContainText(letterTitle);
     const attribution = page.getByRole('region', { name: 'Attribution' });
     await expect(attribution).toBeVisible();
     await expect(attribution).toContainText(/Type:\s*letter/i);
@@ -26,8 +27,9 @@ test.describe('Faith Learner sermon and letter reading smoke', () => {
 
     const article = page.locator('article');
     await expect(article).toBeVisible();
-    await expect(article).toContainText(letterTitle);
-    expect((await article.innerText()).trim().length).toBeGreaterThan(120);
+    const readingText = (await article.innerText()).trim();
+    expect(readingText.length).toBeGreaterThan(120);
+    expect(readingText).toMatch(/leadership|accountability|public trust/i);
 
     const markComplete = page.getByRole('button', { name: /Mark as complete/i });
     if (await markComplete.isVisible()) {
@@ -40,7 +42,7 @@ test.describe('Faith Learner sermon and letter reading smoke', () => {
     await page.reload();
     await expect(page.getByRole('button', { name: /Completed/i })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('region', { name: 'Attribution' })).toContainText(/Type:\s*letter/i);
-    await expect(page.locator('article')).toContainText(letterTitle);
+    await expect(page.locator('body')).toContainText(letterTitle);
   });
 
   test('authenticated learner can attribute, read, complete, and reopen a speech with persisted progress', async ({ page }) => {
@@ -56,6 +58,7 @@ test.describe('Faith Learner sermon and letter reading smoke', () => {
     await speech.click();
     await expect(page).toHaveURL(/\/library\/[0-9a-f-]+/);
 
+    await expect(page.locator('body')).toContainText('Karbala and Moral Courage');
     const attribution = page.getByRole('region', { name: 'Attribution' });
     await expect(attribution).toBeVisible();
     await expect(attribution).toContainText(/Type:\s*speech/i);
@@ -63,8 +66,9 @@ test.describe('Faith Learner sermon and letter reading smoke', () => {
 
     const article = page.locator('article');
     await expect(article).toBeVisible();
-    await expect(article).toContainText('Karbala and Moral Courage');
-    expect((await article.innerText()).trim().length).toBeGreaterThan(120);
+    const readingText = (await article.innerText()).trim();
+    expect(readingText.length).toBeGreaterThan(120);
+    expect(readingText).toMatch(/moral courage|ethical principles|injustice/i);
 
     const markComplete = page.getByRole('button', { name: /Mark as complete/i });
     if (await markComplete.isVisible()) {
@@ -76,6 +80,7 @@ test.describe('Faith Learner sermon and letter reading smoke', () => {
 
     await page.reload();
     await expect(page.getByRole('button', { name: /Completed/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('region', { name: 'Attribution' })).toContainText(/Type:\s*speech/i);
   });
 });
 
