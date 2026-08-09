@@ -50,7 +50,7 @@ test.describe('Faith Learner production smoke', () => {
 
     const lesson = page.locator('a[href^="/library/"]').first();
     const quiz = page.locator('a[href^="/quiz/"]').first();
-    await expect(lesson.or(quiz)).toBeVisible();
+    await expect(page.locator('a[href^="/library/"], a[href^="/quiz/"]').first()).toBeVisible();
 
     if (await lesson.isVisible()) {
       await lesson.click();
