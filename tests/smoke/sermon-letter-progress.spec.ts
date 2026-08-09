@@ -14,7 +14,7 @@ test.describe('Faith Learner sermon and letter reading smoke', () => {
     await expect(search).toBeVisible();
     await search.fill(letterTitle);
 
-    const letter = page.getByRole('link', { name: new RegExp(`Open ${escapeRegExp(letterTitle)}`, 'i') });
+    const letter = page.getByRole('link', { name: `Open ${letterTitle}` });
     await expect(letter).toBeVisible({ timeout: 15000 });
     await letter.click();
     await expect(page).toHaveURL(/\/library\/[0-9a-f-]+/);
@@ -51,7 +51,7 @@ test.describe('Faith Learner sermon and letter reading smoke', () => {
     const search = page.getByPlaceholder('Search titles and summaries');
     await search.fill('Karbala and Moral Courage');
 
-    const speech = page.getByRole('link', { name: /Open Karbala and Moral Courage/i });
+    const speech = page.getByRole('link', { name: 'Open Karbala and Moral Courage' });
     await expect(speech).toBeVisible({ timeout: 15000 });
     await speech.click();
     await expect(page).toHaveURL(/\/library\/[0-9a-f-]+/);
@@ -85,8 +85,4 @@ async function login(page: Page, userEmail: string, userPassword: string) {
   await page.getByLabel('Password').fill(userPassword);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.waitForURL('/', { timeout: 20000 });
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
 }
