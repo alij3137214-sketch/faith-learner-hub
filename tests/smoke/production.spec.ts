@@ -38,9 +38,14 @@ test.describe('Faith Learner production smoke', () => {
     await expect(page.locator('body')).toContainText(/admin|access|authorized/i);
   });
 
-  test('authenticated learner can complete a course lesson and quiz', async ({ page }) => {
+  test('authenticated learner can complete a lesson, earn XP, submit a quiz, and reopen saved progress', async ({ page }) => {
     test.skip(!email || !password, 'Authenticated test secrets are not configured');
     await login(page, email!, password!);
+
+    // Establish a baseline for the real persisted XP value before the lesson action.
+    await page.goto('/profile');
+    const beforeProfileText = await page.locator('body').innerText();
+    const beforeXp = Number(beforeProfileText.match(/Level\s+\d+\s+·\s+([\d,]+)\s+XP/)?.[1]?.replace(/,/g, '') ?? '0');
 
     await page.goto('/learn');
     const path = page.locator('a[href^="/learn/"]').first();
@@ -53,15 +58,32 @@ test.describe('Faith Learner production smoke', () => {
     await expect(page.locator('a[href^="/library/"], a[href^="/quiz/"]').first()).toBeVisible();
 
     if (await lesson.isVisible()) {
+      const lessonHref = await lesson.getAttribute('href');
+      expect(lessonHref).toBeTruthy();
       await lesson.click();
       await expect(page.locator('article')).toBeVisible();
+
       const complete = page.getByRole('button', { name: /Mark as complete/i });
       if (await complete.isVisible()) {
+        const rewardMatch = (await complete.innerText()).match(/\+(\d+)\s*XP/i);
+        const expectedXp = Number(rewardMatch?.[1] ?? '0');
         await complete.click();
         await expect(page.getByRole('button', { name: /Completed|Already completed/i })).toBeVisible({ timeout: 15000 });
+
+        await page.goto('/profile');
+        const afterProfileText = await page.locator('body').innerText();
+        const afterXp = Number(afterProfileText.match(/Level\s+\d+\s+·\s+([\d,]+)\s+XP/)?.[1]?.replace(/,/g, '') ?? '0');
+        expect(afterXp).toBeGreaterThanOrEqual(beforeXp + expectedXp);
+
+        // Reopen the exact lesson and verify completion comes from persisted server state.
+        await page.goto(lessonHref!);
+        await expect(page.getByRole('button', { name: /Completed|Already completed/i })).toBeVisible({ timeout: 15000 });
+      } else {
+        await expect(page.getByRole('button', { name: /Completed|Already completed/i })).toBeVisible();
       }
     }
 
+    // Submit the real quiz UI. We intentionally do not read or infer the answer key.
     await page.goto('/learn');
     await path.click();
     const quizLink = page.locator('a[href^="/quiz/"]').first();
@@ -69,8 +91,18 @@ test.describe('Faith Learner production smoke', () => {
     await quizLink.click();
     await expect(page).toHaveURL(/\/quiz\/[^/]+/);
     await expect(page.getByRole('button', { name: /Submit quiz/i })).toBeVisible();
-    const options = page.locator('section').filter({ hasText: /Question 1/i }).getByRole('button');
-    if (await options.count()) await options.first().click();
+
+    const questionSections = page.locator('section').filter({ hasText: /Question \d+/i });
+    const questionCount = await questionSections.count();
+    expect(questionCount).toBeGreaterThan(0);
+    for (let i = 0; i < questionCount; i += 1) {
+      const options = questionSections.nth(i).getByRole('button');
+      await expect(options.first()).toBeVisible();
+      await options.first().click();
+    }
+
+    await page.getByRole('button', { name: /Submit quiz/i }).click();
+    await expect(page.locator('body')).toContainText(/\d+\/\d+ correct|\d+%/, { timeout: 20000 });
   });
 
   test('authenticated learner can reach library, AI, leaderboard, duel and profile', async ({ page }) => {
