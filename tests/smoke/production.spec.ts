@@ -142,9 +142,11 @@ test.describe('Faith Learner production smoke', () => {
     await input.fill('What does the library say about moral courage?');
     await page.getByRole('button', { name: 'Ask AI' }).click();
 
-    await expect(page.getByText(/Searching the library and generating an answer…|AI request failed/i)).toBeVisible({ timeout: 5000 }).catch(() => {});
-    await expect(page.locator('body')).not.toContainText('AI request failed', { timeout: 30000 });
-    await expect(page.locator('body')).not.toContainText('No relevant information was found in the uploaded knowledge base.', { timeout: 30000 });
+    const searching = page.getByText('Searching the library and generating an answer…');
+    await expect(searching).toBeVisible({ timeout: 5000 }).catch(() => {});
+    await expect(searching).toBeHidden({ timeout: 30000 });
+    await expect(page.locator('body')).not.toContainText('AI request failed');
+    await expect(page.locator('body')).not.toContainText('No relevant information was found in the uploaded knowledge base.');
 
     const answer = page.locator('.surface-glass').first();
     await expect(answer).toBeVisible({ timeout: 30000 });
