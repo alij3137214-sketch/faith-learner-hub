@@ -42,7 +42,6 @@ test.describe('Faith Learner production smoke', () => {
     test.skip(!email || !password, 'Authenticated test secrets are not configured');
     await login(page, email!, password!);
 
-    // Establish a baseline for the real persisted XP value before the lesson action.
     await page.goto('/profile');
     const beforeProfileText = await page.locator('body').innerText();
     const beforeXp = Number(beforeProfileText.match(/Level\s+\d+\s+·\s+([\d,]+)\s+XP/)?.[1]?.replace(/,/g, '') ?? '0');
@@ -54,7 +53,6 @@ test.describe('Faith Learner production smoke', () => {
     await expect(page).toHaveURL(/\/learn\/[^/]+/);
 
     const lesson = page.locator('a[href^="/library/"]').first();
-    const quiz = page.locator('a[href^="/quiz/"]').first();
     await expect(page.locator('a[href^="/library/"], a[href^="/quiz/"]').first()).toBeVisible();
 
     if (await lesson.isVisible()) {
@@ -75,7 +73,6 @@ test.describe('Faith Learner production smoke', () => {
         const afterXp = Number(afterProfileText.match(/Level\s+\d+\s+·\s+([\d,]+)\s+XP/)?.[1]?.replace(/,/g, '') ?? '0');
         expect(afterXp).toBeGreaterThanOrEqual(beforeXp + expectedXp);
 
-        // Reopen the exact lesson and verify completion comes from persisted server state.
         await page.goto(lessonHref!);
         await expect(page.getByRole('button', { name: /Completed|Already completed/i })).toBeVisible({ timeout: 15000 });
       } else {
@@ -83,7 +80,6 @@ test.describe('Faith Learner production smoke', () => {
       }
     }
 
-    // Submit the real quiz UI. We intentionally do not read or infer the answer key.
     await page.goto('/learn');
     await path.click();
     const quizLink = page.locator('a[href^="/quiz/"]').first();
@@ -134,6 +130,34 @@ test.describe('Faith Learner production smoke', () => {
     await expect(page.getByRole('button', { name: /Sign out/i })).toBeVisible();
     await page.getByRole('button', { name: /Sign out/i }).click();
     await page.waitForURL(/\/auth/);
+  });
+
+  test('AI grounding pipeline retrieves sources, uses Gemini, and renders citations', async ({ page }) => {
+    test.skip(!email || !password, 'Authenticated test secrets are not configured');
+    await login(page, email!, password!);
+    await page.goto('/ask');
+
+    const input = page.getByLabel('AI question');
+    await expect(input).toBeVisible();
+    await input.fill('What does the library say about moral courage?');
+    await page.getByRole('button', { name: 'Ask AI' }).click();
+
+    const searching = page.getByText('Searching the library and generating an answer…');
+    await expect(searching).toBeVisible({ timeout: 5000 }).catch(() => {});
+    await expect(searching).toBeHidden({ timeout: 30000 });
+    await expect(page.locator('body')).not.toContainText('AI request failed');
+    await expect(page.locator('body')).not.toContainText('No relevant information was found in the uploaded knowledge base.');
+
+    const answer = page.locator('.surface-glass').first();
+    await expect(answer).toBeVisible({ timeout: 30000 });
+    const answerText = await answer.innerText();
+    expect(answerText.length).toBeGreaterThan(20);
+    expect(answerText).toMatch(/\[Source\s+\d+\]/i);
+
+    const citationCards = page.locator('div.rounded-2xl.border.border-border.p-3\\.5');
+    await expect(citationCards.first()).toBeVisible({ timeout: 30000 });
+    expect(await citationCards.count()).toBeGreaterThan(0);
+    await expect(citationCards.first()).toContainText(/moral courage|Educational synthesis|scholar/i);
   });
 });
 
