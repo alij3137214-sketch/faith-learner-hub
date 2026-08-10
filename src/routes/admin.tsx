@@ -9,7 +9,7 @@ function AdminPage() {
   const { isAdmin } = useAuth();
   if (!isAdmin) return <main className="flex min-h-screen items-center justify-center p-6"><div className="text-center"><h1 className="font-display text-2xl font-semibold">Admin access required</h1><p className="mt-2 text-sm text-muted-foreground">This area is restricted to the application owner/admin role.</p><Button asChild className="mt-5 rounded-2xl"><Link to="/">Return to app</Link></Button></div></main>;
   const cards = [
-    { title: "Content", text: "Review learning material, open the source library, and publish content.", href: "/library" },
+    { title: "Content", text: "Review sources, attribution, publication state, and learner-facing material.", href: "/admin/content" },
     { title: "Quizzes", text: "Open published quizzes and verify questions and progression.", href: "/learn" },
     { title: "Missions", text: "Review learner objectives and rewards.", href: "/profile" },
     { title: "Users", text: "Review learner accounts and role-protected profile controls.", href: "/leaderboard" },
