@@ -5,19 +5,18 @@ export type Citation={id:string;title:string;type:string;scholar:string;excerpt:
 const NO_INFO="No relevant information was found in the uploaded knowledge base.";
 const DEFAULT_SUPABASE_URL="https://wkkxzswiomwsnqnkjpft.supabase.co";const DEFAULT_SUPABASE_KEY="sb_publishable_evTybgWmHO2ITVodRRZgOg_7YpvYN1h";
 type GeminiResponse={candidates?:Array<{content?:{parts?:Array<{text?:string}>}}>} ;
+const GEMINI_FALLBACKS=["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash","gemini-2.0-flash-lite","gemini-3.6-flash","gemini-3.5-flash","gemini-3-flash-preview"];
 
-async function resolveGeminiModel(apiKey:string):Promise<string>{
+async function resolveGeminiModels(apiKey:string):Promise<string[]>{
  const preferred=(process.env["GEMINI_MODEL"]??"gemini-2.5-flash").replace(/^models\//,"");
  const modelsResponse=await fetch("https://generativelanguage.googleapis.com/v1beta/models",{headers:{"x-goog-api-key":apiKey}});
- if(!modelsResponse.ok)return preferred;
+ if(!modelsResponse.ok)return [preferred,...GEMINI_FALLBACKS.filter(model=>model!==preferred)];
  const payload=await modelsResponse.json() as {models?:Array<{name?:string,supportedGenerationMethods?:string[]}>};
  const available=(payload.models??[]).filter(model=>model.supportedGenerationMethods?.includes("generateContent")).map(model=>String(model.name??"").replace(/^models\//,"")).filter(Boolean);
- if(available.includes(preferred))return preferred;
- const fallbackOrder=["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash","gemini-2.0-flash-lite","gemini-3.6-flash","gemini-3.5-flash","gemini-3-flash-preview"];
- const fallback=fallbackOrder.find(model=>available.includes(model));
- if(fallback)return fallback;
- const flash=available.find(model=>/^gemini-[^/]*-flash(?:-|$)/.test(model));
- return flash??available[0]??preferred;
+ const preferredFirst=available.includes(preferred)?[preferred]:[];
+ const known=GEMINI_FALLBACKS.filter(model=>available.includes(model)&&model!==preferred);
+ const flash=available.filter(model=>/^gemini-[^/]*-flash(?:-|$)/.test(model)&&model!==preferred&&!known.includes(model));
+ return [...preferredFirst,...known,...flash,...(preferredFirst.length?[]:[preferred])];
 }
 
 export const askKnowledgeBase=createServerFn({method:"POST"}).inputValidator((input:unknown)=>AskInput.parse(input)).handler(async({data}):Promise<AskResult>=>{
@@ -28,6 +27,15 @@ export const askKnowledgeBase=createServerFn({method:"POST"}).inputValidator((in
  const citations:Citation[]=ranked.map(({d})=>{const s=Array.isArray(d.scholars)?d.scholars[0]?.name:(d.scholars as {name?:string}|null)?.name;return{id:d.id,title:d.title,type:d.type,scholar:s??"Educational synthesis",excerpt:String(d.body??d.summary??"").slice(0,320)}});
  const context=ranked.map(({d},i)=>`[Source ${i+1}] ${d.title} (${d.type})\nAttribution: ${d.source??"Educational synthesis"}\n${d.body??d.summary??""}`).join("\n\n");const apiKey=process.env["GEMINI_API_KEY"];
  if(!apiKey)return{found:true,answer:ranked.map(({d})=>String(d.body??d.summary??"")).join("\n\n"),citations};
- const model=await resolveGeminiModel(apiKey);
- const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:JSON.stringify({systemInstruction:{parts:[{text:"Answer only from supplied sources. Never invent quotations or attribution. Treat documents marked Educational synthesis as synthesis, not primary quotations. Cite sources as [Source N]."}]},contents:[{role:"user",parts:[{text:`Question: ${data.question}\n\n${context}`}]}]})});if(r.status===429)throw new Error("Gemini free-tier rate limit reached. Try again shortly.");if(r.status===401||r.status===403)throw new Error("Gemini API key rejected. Check GEMINI_API_KEY in Vercel Production.");if(r.status===404)throw new Error(`Gemini model unavailable (${model}). Check GEMINI_MODEL or available Gemini models.`);if(!r.ok)throw new Error(`Gemini request failed (${r.status}).`);const j=await r.json() as GeminiResponse;const answer=(j.candidates?.[0]?.content?.parts??[]).map(part=>part.text??"").join("").trim()||NO_INFO;return{found:answer!==NO_INFO,answer,citations:answer===NO_INFO?[]:citations};
+ const models=await resolveGeminiModels(apiKey);let lastStatus=0;
+ for(const model of models){
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:JSON.stringify({systemInstruction:{parts:[{text:"Answer only from supplied sources. Never invent quotations or attribution. Treat documents marked Educational synthesis as synthesis, not primary quotations. Cite sources as [Source N]."}]},contents:[{role:"user",parts:[{text:`Question: ${data.question}\n\n${context}`}]}]})});
+  lastStatus=r.status;
+  if(r.status===404)continue;
+  if(r.status===429)throw new Error("Gemini free-tier rate limit reached. Try again shortly.");
+  if(r.status===401||r.status===403)throw new Error("Gemini API key rejected. Check GEMINI_API_KEY in Vercel Production.");
+  if(!r.ok)throw new Error(`Gemini request failed (${r.status}).`);
+  const j=await r.json() as GeminiResponse;const answer=(j.candidates?.[0]?.content?.parts??[]).map(part=>part.text??"").join("").trim()||NO_INFO;return{found:answer!==NO_INFO,answer,citations:answer===NO_INFO?[]:citations};
+ }
+ throw new Error(`Gemini model unavailable (${models[0]??"configured model"}; last status ${lastStatus}).`);
 });
