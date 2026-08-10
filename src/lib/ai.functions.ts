@@ -11,10 +11,13 @@ async function resolveGeminiModel(apiKey:string):Promise<string>{
  const modelsResponse=await fetch("https://generativelanguage.googleapis.com/v1beta/models",{headers:{"x-goog-api-key":apiKey}});
  if(!modelsResponse.ok)return preferred;
  const payload=await modelsResponse.json() as {models?:Array<{name?:string,supportedGenerationMethods?:string[]}>};
- const available=(payload.models??[]).filter(model=>model.supportedGenerationMethods?.includes("generateContent")).map(model=>String(model.name??"").replace(/^models\//,""));
+ const available=(payload.models??[]).filter(model=>model.supportedGenerationMethods?.includes("generateContent")).map(model=>String(model.name??"").replace(/^models\//,"")).filter(Boolean);
  if(available.includes(preferred))return preferred;
- const fallbackOrder=["gemini-2.5-flash","gemini-3.6-flash","gemini-3.5-flash","gemini-3-flash-preview","gemini-2.0-flash"];
- return fallbackOrder.find(model=>available.includes(model))??preferred;
+ const fallbackOrder=["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash","gemini-2.0-flash-lite","gemini-3.6-flash","gemini-3.5-flash","gemini-3-flash-preview"];
+ const fallback=fallbackOrder.find(model=>available.includes(model));
+ if(fallback)return fallback;
+ const flash=available.find(model=>/^gemini-[^/]*-flash(?:-|$)/.test(model));
+ return flash??available[0]??preferred;
 }
 
 export const askKnowledgeBase=createServerFn({method:"POST"}).inputValidator((input:unknown)=>AskInput.parse(input)).handler(async({data}):Promise<AskResult>=>{
