@@ -148,7 +148,7 @@ test.describe('Faith Learner production smoke', () => {
     await expect(page.locator('body')).not.toContainText('AI request failed');
     await expect(page.locator('body')).not.toContainText('No relevant information was found in the uploaded knowledge base.');
 
-    const answer = page.locator('.surface-glass').first();
+    const answer = page.locator('div.surface-glass').filter({ hasText: /\[Source\s+\d+\]/i }).first();
     await expect(answer).toBeVisible({ timeout: 30000 });
     const answerText = await answer.innerText();
     expect(answerText.length).toBeGreaterThan(20);
